@@ -96,7 +96,212 @@
 
 <script>
 'use strict';
-const SHOP_NAME = 'SHOP IN STORE';
 const FORMSPREE_ENDPOINT = 'https://formspree.io/f/mwlvdwkn';
-const SHOP_EMAIL = 'ranikhagta5@gmail.com';
-co
+
+const PRODUCTS = [
+  { id: 'prod1', name: 'Tech Accessory 1', category: 'Wearables', price: 499, badge: 'Popular', desc: 'Useful everyday tech accessory selected for you.', image: 'https://i.ibb.co/RTc6pkqX/Whats-App-Image-2026-10-20-at-3-16-31-PM.jpg' },
+  { id: 'prod2', name: 'Tech Accessory 2', category: 'Audio', price: 799, badge: 'Best Seller', desc: 'Useful everyday tech accessory selected for you.', image: 'https://i.ibb.co/FkBFtWRz/Whats-App-Image-2026-10-20-at-3-16-30-PM.jpg' },
+  { id: 'prod3', name: 'Tech Accessory 3', category: 'Charging', price: 999, badge: 'Essential', desc: 'Useful everyday tech accessory selected for you.', image: 'https://i.ibb.co/TMyXZ1Tm/Whats-App-Image-2026-10-20-at-3-16-30-PM.jpg' },
+  { id: 'prod4', name: 'Tech Accessory 4', category: 'Audio', price: 1299, badge: 'New', desc: 'Useful everyday tech accessory selected for you.', image: 'https://i.ibb.co/RT8BZ7YG/Whats-App-Image-2026-10-20-at-3-44-26-PM.jpg' },
+  { id: 'prod5', name: 'Tech Accessory 5', category: 'Accessories', price: 1499, badge: 'Hot Deal', desc: 'Useful everyday tech accessory selected for you.', image: 'https://i.ibb.co/gLJYqfGx/Whats-App-Image-2026-10-20-at-3-43-19-PM.jpg' }
+];
+
+let cart = [];
+let selectedCategory = 'All';
+
+function init() {
+  document.getElementById('year').textContent = new Date().getFullYear();
+  renderFilters();
+  renderProducts();
+  setupOrderForm();
+}
+
+function renderFilters() {
+  const categories = ['All', ...new Set(PRODUCTS.map(p => p.category))];
+  const container = document.getElementById('filters');
+  container.innerHTML = categories.map(cat => 
+    `<button class="filter ${cat === selectedCategory ? 'active' : ''}" onclick="filterCategory('${cat}')">${cat}</button>`
+  ).join('');
+}
+
+function filterCategory(cat) {
+  selectedCategory = cat;
+  renderFilters();
+  renderProducts();
+}
+
+function renderProducts() {
+  const grid = document.getElementById('productGrid');
+  const filtered = selectedCategory === 'All' ? PRODUCTS : PRODUCTS.filter(p => p.category === selectedCategory);
+  
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="empty-state">No products found in this category.</div>';
+    return;
+  }
+
+  grid.innerHTML = filtered.map(p => `
+    <div class="product-card">
+      <div class="product-image-wrap">
+        <img class="product-image" src="${p.image}" alt="${p.name}" loading="lazy">
+        ${p.badge ? `<span class="product-badge">${p.badge}</span>` : ''}
+      </div>
+      <div class="product-info">
+        <span class="product-category">${p.category}</span>
+        <h3>${p.name}</h3>
+        <p class="product-desc">${p.desc}</p>
+        <div class="product-bottom">
+          <span class="price">₹${p.price.toLocaleString('en-IN')}</span>
+          <button class="add-btn" onclick="addToCart('${p.id}')">Add +</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function addToCart(id) {
+  const product = PRODUCTS.find(p => p.id === id);
+  const existing = cart.find(item => item.id === id);
+  if (existing) {
+    existing.qty += 1;
+  } else {
+    cart.push({ ...product, qty: 1 });
+  }
+  updateCartUI();
+  showToast(`Added ${product.name} to cart!`);
+}
+
+function updateCartUI() {
+  const count = cart.reduce((acc, item) => acc + item.qty, 0);
+  document.getElementById('navCount').textContent = count;
+  document.getElementById('floatCount').textContent = count;
+}
+
+function openCart() {
+  document.getElementById('cartModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  renderCartModal();
+}
+
+function closeCart() {
+  document.getElementById('cartModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function backdropClose(e) {
+  if (e.target.id === 'cartModal') closeCart();
+}
+
+function renderCartModal() {
+  const content = document.getElementById('cartContent');
+  const checkout = document.getElementById('checkoutPanel');
+  const success = document.getElementById('successPanel');
+  
+  success.classList.remove('show');
+
+  if (cart.length === 0) {
+    content.innerHTML = '<div class="cart-empty"><div class="big">🛒</div><p>Your cart is empty.</p></div>';
+    checkout.classList.remove('show');
+    return;
+  }
+
+  const total = cart.reduce((acc, item) => acc + item.price * item.qty, 0);
+
+  content.innerHTML = `
+    <div class="cart-list">
+      ${cart.map(item => `
+        <div class="cart-line">
+          <img src="${item.image}" alt="${item.name}">
+          <div>
+            <h3>${item.name}</h3>
+            <small>₹${item.price.toLocaleString('en-IN')}</small>
+            <div class="qty">
+              <button type="button" onclick="changeQty('${item.id}', -1)">-</button>
+              <span>${item.qty}</span>
+              <button type="button" onclick="changeQty('${item.id}', 1)">+</button>
+            </div>
+          </div>
+          <div class="line-total">
+            ₹${(item.price * item.qty).toLocaleString('en-IN')}
+            <button class="remove-btn" onclick="removeItem('${item.id}')">Remove</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="cart-summary">
+      <span>Grand Total:</span>
+      <strong>₹${total.toLocaleString('en-IN')}</strong>
+    </div>
+  `;
+  checkout.classList.add('show');
+}
+
+function changeQty(id, delta) {
+  const item = cart.find(i => i.id === id);
+  if (item) {
+    item.qty += delta;
+    if (item.qty <= 0) cart = cart.filter(i => i.id !== id);
+  }
+  updateCartUI();
+  renderCartModal();
+}
+
+function removeItem(id) {
+  cart = cart.filter(i => i.id !== id);
+  updateCartUI();
+  renderCartModal();
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+function setupOrderForm() {
+  const form = document.getElementById('orderForm');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('submitOrderBtn');
+    btn.disabled = true;
+    btn.textContent = 'Submitting...';
+
+    const total = cart.reduce((acc, item) => acc + item.price * item.qty, 0);
+    const summary = cart.map(i => `${i.name} (x${i.qty}) - ₹${i.price * i.qty}`).join('\n');
+
+    document.getElementById('orderSummaryField').value = summary;
+    document.getElementById('grandTotalField').value = `₹${total}`;
+    document.getElementById('itemsJsonField').value = JSON.stringify(cart);
+
+    const formData = new FormData(form);
+
+    try {
+      const response = await fetch(FORMSPREE_ENDPOINT, {
+        method: 'POST',
+        body: formData,
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (response.ok) {
+        cart = [];
+        updateCartUI();
+        document.getElementById('cartContent').innerHTML = '';
+        document.getElementById('checkoutPanel').classList.remove('show');
+        document.getElementById('successPanel').classList.add('show');
+        form.reset();
+      } else {
+        alert('There was an issue submitting your order. Please try again.');
+      }
+    } catch (err) {
+      alert('Error connecting to network. Please check your connection.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Place Order Request';
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
